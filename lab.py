@@ -193,16 +193,33 @@ def color_filter_from_greyscale_filter(filt):
     greyscale image as output, returns a function that takes a color image as
     input and produces the filtered color image.
     """
-    raise NotImplementedError
+    def color_function(color_image):
+        red_greyscale_img = {'height': color_image['height'], 'width': color_image['width'], 'pixels': []}
+        green_greyscale_img = {'height': color_image['height'], 'width': color_image['width'], 'pixels': []}
+        blue_greyscale_img = {'height': color_image['height'], 'width': color_image['width'], 'pixels': []}
+        color_filtered_img = {'height': color_image['height'], 'width': color_image['width'], 'pixels': []}
+        for pixel in color_image['pixels']:
+            red_greyscale_img['pixels'].append(pixel[0])
+            green_greyscale_img['pixels'].append(pixel[1])
+            blue_greyscale_img['pixels'].append(pixel[2])
+        red_filtered_img = filt(red_greyscale_img)
+        green_filtered_img = filt(green_greyscale_img)
+        blue_filtered_img = filt(blue_greyscale_img)
+        for i in range(len(color_image['pixels'])):
+            color_filtered_img['pixels'].append((red_filtered_img['pixels'][i], green_filtered_img['pixels'][i], blue_filtered_img['pixels'][i]))
+        return color_filtered_img
+    return color_function
 
 
 def make_blur_filter(n):
-    raise NotImplementedError
-
+    def blur_filter(image):
+        return blurred(image, n)
+    return blur_filter
 
 def make_sharpen_filter(n):
-    raise NotImplementedError
-
+    def sharpen_filter(image):
+        return sharpened(image, n)
+    return sharpen_filter
 
 def filter_cascade(filters):
     """
@@ -210,8 +227,11 @@ def filter_cascade(filters):
     single filter such that applying that filter to an image produces the same
     output as applying each of the individual ones in turn.
     """
-    raise NotImplementedError
-
+    def cascaded_filter(image):
+        for filt in filters:
+            image = filt(image)
+        return image
+    return cascaded_filter
 
 # SEAM CARVING
 
@@ -316,4 +336,9 @@ if __name__ == '__main__':
     # code in this block will only be run when you explicitly run your script,
     # and not when the tests are being run.  this is a good place for
     # generating images, etc.
-    pass
+    filter1 = color_filter_from_greyscale_filter(edges)
+    filter2 = color_filter_from_greyscale_filter(make_blur_filter(5))
+    filt = filter_cascade([filter1, filter1, filter2, filter1])
+    image = load_color_image('test_images/frog.png')
+    new_image = filt(image)
+    save_color_image(new_image, 'test_results/combo_frog.png')
