@@ -242,8 +242,15 @@ def seam_carving(image, ncols):
     Starting from the given image, use the seam carving technique to remove
     ncols (an integer) columns from the image.
     """
-    raise NotImplementedError
-
+    grey_image = greyscale_image_from_color_image(image)
+    energy_img = compute_energy(grey_image)
+    cum_energy = cumulative_energy_map(energy_img)
+    new_image = image.copy()
+    for i in range(ncols):
+        seam = minimum_energy_seam(cum_energy)
+        new_image = image_without_seam(new_image, seam)
+        cum_energy = image_without_seam(cum_energy, seam)
+    return new_image
 
 # Optional Helper Functions for Seam Carving
 
@@ -253,7 +260,11 @@ def greyscale_image_from_color_image(image):
 
     Returns a greyscale image (represented as a dictionary).
     """
-    raise NotImplementedError
+    greyscale_image = {'height': image['height'], 'width': image['width'], 'pixels': []}
+    for pixel in image['pixels']:
+        greyscale_image['pixels'].append(round(.299 * pixel[0] + .587 * pixel[1] + .114 * pixel[2]))
+    return greyscale_image
+        
 
 
 def compute_energy(grey):
@@ -263,7 +274,7 @@ def compute_energy(grey):
 
     Returns a greyscale image (represented as a dictionary).
     """
-    raise NotImplementedError
+    return edges(grey)
 
 
 def cumulative_energy_map(energy):
@@ -275,8 +286,22 @@ def cumulative_energy_map(energy):
     the values in the 'pixels' array may not necessarily be in the range [0,
     255].
     """
-    raise NotImplementedError
-
+    cum_energy = {'height': 1, 'width': energy['width'], 'pixels': energy['pixels'][0 : energy['width']]}
+    row_num = 1
+    while cum_energy['height'] < energy['height']:
+        for i in range(cum_energy['width']):
+            minim = 0
+            if row_num > 0:
+                if i > 0 and i < cum_energy['width'] - 1:
+                    minim = min(get_pixel(cum_energy, row_num - 1, j) for j in range(i - 1, i + 2))
+                elif i == 0:
+                    minim = min(get_pixel(cum_energy, row_num - 1, j) for j in range(0, 2))
+                else:
+                    minim = min(get_pixel(cum_energy, row_num - 1, j) for j in range(cum_energy['width'] - 2, cum_energy['width']))
+            cum_energy['pixels'].append(get_pixel(energy, row_num, i) + minim)
+        cum_energy['height'] += 1
+        row_num += 1
+    return cum_energy
 
 def minimum_energy_seam(c):
     """
@@ -284,8 +309,40 @@ def minimum_energy_seam(c):
     'pixels' list that correspond to pixels contained in the minimum-energy
     seam (computed as described in the lab 1 writeup).
     """
-    raise NotImplementedError
-
+    seam = []
+    first_row_idx = len(c['pixels']) - c['width']
+    min_energy = c['pixels'][first_row_idx]
+    start_idx = first_row_idx
+    for i in range(first_row_idx, len(c['pixels'])):
+        if c['pixels'][i] < min_energy:
+            min_energy = c['pixels'][i]
+            start_idx = i
+    seam.append(start_idx)
+    for row_num in reversed(range(c['height'])):
+        if row_num > 0:
+            top_left = c['pixels'][start_idx - c['width'] - 1]
+            top_middle = c['pixels'][start_idx - c['width']]
+            top_right = c['pixels'][start_idx - c['width'] + 1]
+            if start_idx > row_num * c['width'] - 1:
+                if start_idx < (row_num + 1) * c['width']:
+                    if top_left <= top_middle and top_left <= top_right:
+                        start_idx = start_idx - c['width'] - 1
+                    elif top_middle <= top_left and top_middle <= top_right:
+                        start_idx = start_idx- c['width']
+                    else:
+                        start_idx = start_idx - c['width'] + 1
+                else:
+                    if top_left <= top_middle:
+                        start_idx = start_idx - c['width'] - 1
+                    else:
+                        start_idx = start_idx - c['width']
+            else:
+                if top_middle <= top_right:
+                    start_idx = start_idx - c['width']
+                else:
+                    start_idx = start_idx - c['width'] + 1
+            seam.append(start_idx)
+    return seam
 
 def image_without_seam(im, s):
     """
@@ -294,7 +351,11 @@ def image_without_seam(im, s):
     pixels from the original image except those corresponding to the locations
     in the given list.
     """
-    raise NotImplementedError
+    new_image = {'height': im['height'], 'width': im['width'] - 1, 'pixels': []}
+    for i in range(len(im['pixels'])):
+        if i not in s:
+            new_image['pixels'].append(im['pixels'][i])
+    return new_image
 
 
 # HELPER FUNCTIONS FOR LOADING AND SAVING COLOR IMAGES
@@ -336,9 +397,6 @@ if __name__ == '__main__':
     # code in this block will only be run when you explicitly run your script,
     # and not when the tests are being run.  this is a good place for
     # generating images, etc.
-    filter1 = color_filter_from_greyscale_filter(edges)
-    filter2 = color_filter_from_greyscale_filter(make_blur_filter(5))
-    filt = filter_cascade([filter1, filter1, filter2, filter1])
-    image = load_color_image('test_images/frog.png')
-    new_image = filt(image)
-    save_color_image(new_image, 'test_results/combo_frog.png')
+    image = load_color_image('test_images/cat.png')
+    new_image = seam_carving(image, 5)
+    save_color_image(new_image, 'seamed_cat.png')
